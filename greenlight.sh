@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+## The sshd_config on the server needs to set Gatewayports to 'yes'
+## There are also alternative ways without requiring config on the server.
+## Check https://superuser.com/a/1107557 and https://superuser.com/a/1444518
+
 set -e
 
 GREENLT_CLIENT_USER="$USER"
@@ -22,14 +26,21 @@ function query_session {
 }
 
 function host_session {
-    ssh -R $GREENLT_CLIENT_ALIAS:22:localhost:22 $GREENLT_SERVER <<EOF
+    # Get available port on remote server https://unix.stackexchange.com/a/423052/168574
+    remote_port=$(
+    ssh -T $GREENLT_SERVER bash <<'EOF'
+    comm -23 <(seq 49152 65535 | sort) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort -u) | shuf | head -n 1
+EOF
+)
+    ssh -T -R $remote_port:localhost:22 $GREENLT_SERVER bash <<EOF
         set -e
         mkdir -p /tmp/greenlight
         touch /tmp/greenlight/$GREENLT_CLIENT_ALIAS
         echo $GREENLT_CLIENT_USER@$GREENLT_CLIENT_HOST > /tmp/greenlight/$GREENLT_CLIENT_ALIAS
+        echo $remote_port >> /tmp/greenlight/$GREENLT_CLIENT_ALIAS
         echo "=== Connection established with $GREENLT_SERVER ==="
         echo "Now you can login your machine with:"
-        echo "   ssh -J $GREENLT_SERVER $GREENLT_CLIENT_ALIAS"
+        echo "   ssh -J $GREENLT_SERVER $GREENLT_CLIENT_USER@localhost -p $remote_port"
         while true; do sleep 100; done
 EOF
 }

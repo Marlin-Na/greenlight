@@ -52,7 +52,21 @@ function connect_session {
         echo Missing argument 'alias'
         exit 1
     fi
-    ssh -J $GREENLT_SERVER $1
+    #found=no
+    query_session | \
+      while read output; do
+        server_alias=`echo $output | sed 's/^.*# //'`
+        if [ "$server_alias" = "$1" ]; then
+          #found=yes
+          echo $output
+          $output
+          break
+        fi
+      done
+    #if [ $found = no ]; then
+    #  echo No such alias "($1)" found
+    #fi
+    #exit 1
 }
 
 ## Main

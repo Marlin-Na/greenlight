@@ -52,21 +52,23 @@ function connect_session {
         echo Missing argument 'alias'
         exit 1
     fi
-    #found=no
-    query_session | \
-      while read output; do
-        server_alias=`echo $output | sed 's/^.*# //'`
-        if [ "$server_alias" = "$1" ]; then
-          #found=yes
-          echo $output
-          $output
-          break
-        fi
-      done
-    #if [ $found = no ]; then
-    #  echo No such alias "($1)" found
-    #fi
-    #exit 1
+
+    found=no
+    while read output; do
+      server_alias=`echo $output | sed 's/^.*# //'`
+      if [ "$server_alias" = "$1" ]; then
+        found=yes
+        break
+      fi
+    done < <(query_session)
+
+    if [ $found = no ]; then
+      echo No such alias "($1)" found
+      exit 1
+    else
+      echo $output
+      eval $output
+    fi
 }
 
 ## Main

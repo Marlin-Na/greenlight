@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-## The sshd_config on the server needs to set Gatewayports to 'yes'
-## There are also alternative ways without requiring config on the server.
-## Check https://superuser.com/a/1107557 and https://superuser.com/a/1444518
-
 set -e
 
 GREENLT_CLIENT_USER="$USER"
@@ -20,9 +16,15 @@ if [ -z "$GREENLT_SERVER" ]; then
 fi
 
 function query_session {
-    echo Available sessions on $GREENLT_SERVER:
-    ssh $GREENLT_SERVER "mkdir -p /tmp/greenlight && ls -tl /tmp/greenlight" | \
-        awk '{ print $9 "\t" $6 "-" $7 }' | column -t
+    (ssh $GREENLT_SERVER bash <<'EOF'
+    mkdir -p /tmp/greenlight
+    ls -At /tmp/greenlight | while read alias; do
+      port=`tail -n 1 /tmp/greenlight/$alias`
+      user=`head -n 1 /tmp/greenlight/$alias`
+      echo "$alias  $user  $port"
+    done
+EOF
+) | awk -v host=$GREENLT_SERVER '{ print "    ssh -J " host " " $2 "@localhost -p " $3 "[] # " $1}' | column -t -s "[]"
 }
 
 function host_session {
@@ -36,7 +38,7 @@ EOF
         set -e
         mkdir -p /tmp/greenlight
         touch /tmp/greenlight/$GREENLT_CLIENT_ALIAS
-        echo $GREENLT_CLIENT_USER@$GREENLT_CLIENT_HOST > /tmp/greenlight/$GREENLT_CLIENT_ALIAS
+        echo $GREENLT_CLIENT_USER > /tmp/greenlight/$GREENLT_CLIENT_ALIAS
         echo $remote_port >> /tmp/greenlight/$GREENLT_CLIENT_ALIAS
         echo "=== Connection established with $GREENLT_SERVER ==="
         echo "Now you can login your machine with:"
@@ -58,8 +60,11 @@ if [ "$#" -eq 0 ]; then
     echo "Usage:"
     echo "    $0 host"
     echo "    $0 connect <alias>"
-    echo -----------
+    echo
+    echo Available sessions on $GREENLT_SERVER:
+    echo
     query_session
+    echo
     exit 0
 fi
 
